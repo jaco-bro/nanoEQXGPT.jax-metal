@@ -8,7 +8,7 @@ import equinox as eqx
 import numpy as np
 import optax
 import tiktoken
-
+import tensorboardX
 from model import GPTConfig, GPT
 
 # -----------------------------------------------------------------------------
@@ -23,8 +23,9 @@ always_save_checkpoint = True  # if True, always save a checkpoint after each ev
 init_from = "scratch"  # 'scratch' or 'resume' or 'gpt2*'
 # wandb logging
 wandb_log = False  # disabled by default
-wandb_project = "owt"
-wandb_run_name = "gpt2"  # 'run' + str(time.time())
+tensorboard_log = True  # disabled by default
+log_project = "exp1"
+log_run_name = "gpt2"  # 'run' + str(time.time())
 # data
 dataset = "tinystories"
 gradient_accumulation_steps = 1  # used to simulate larger batch sizes
@@ -75,7 +76,7 @@ config = {k: globals()[k] for k in config_keys}  # will be useful for logging
 os.makedirs(out_dir, exist_ok=True)
 print("✅ Output dir created !")
 
-os.environ["XLA_FLAGS"] = "--xla_gpu_enable_tf32=true"
+# os.environ["XLA_FLAGS"] = "--xla_gpu_enable_tf32=true"
 ptdtype = {"float32": jnp.float32, "bfloat16": jnp.bfloat16, "float16": jnp.float16}[
     dtype
 ]
@@ -237,14 +238,15 @@ optimizer_state = optimizer.init(eqx.filter(model, eqx.is_array))
 # logging
 if wandb_log:
     import wandb
+    wandb.init(project=log_project, name=log_run_name, config=config)
 
-    wandb.init(project=wandb_project, name=wandb_run_name, config=config)
-
+if tensorboard_log:
+    from tensorboardX import SummaryWriter
+    writer = SummaryWriter('runs/' + log_run_name)
+    
 print("👀 Starting run !")
 
-
-# Fetch very first batch
-# x, y = get_batch("train")
+x, y = get_batch("train")
 t0 = time.time()
 running_mfu = -1.0
 for local_iter_num in range(iter_num, max_iters):
@@ -261,7 +263,7 @@ for local_iter_num in range(iter_num, max_iters):
                     # "lr": ls,  # Check
                     # "mfu": running_mfu * 100,
                 }
-            )
+            )            
         if losses["val"] < best_val_loss or always_save_checkpoint:
             # There has to be an easier way to get the count from the hyperparameters...
             # filtering = (
@@ -324,6 +326,8 @@ for local_iter_num in range(iter_num, max_iters):
         if local_iter_num > 1000:
             mfu = model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9 * running_mfu + 0.1 * mfu
+        if tensorboard_log:
+            writer.add_scalar("loss", total_loss, local_iter_num)
         print(
             f"iter {local_iter_num}: loss {total_loss:.4f}, time {dt*1000:.2f}ms, mfu {running_mfu*100:.2f}%"
         )
