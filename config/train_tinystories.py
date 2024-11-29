@@ -1,21 +1,19 @@
 # train a miniature character-level shakespeare model
 # good for debugging and playing on macbooks and such
 
-out_dir = 'out-tinystories'
+out_path = 'out-tinystories/model.eqx'
 eval_interval = 250 # keep frequent because we'll overfit
-eval_iters = 200
-log_interval = 10 # don't print too too often
+eval_iters = 20
+log_interval = 5 # don't print too too often
 
 # we expect to overfit on this small dataset, so only save when val improves
 always_save_checkpoint = False
 
 wandb_log = False # override via command line if you like
-wandb_project = 'tinystories'
-wandb_run_name = 'mini-gpt'
 
 dataset = 'tinystories'
 gradient_accumulation_steps = 1
-batch_size = 16
+batch_size = 32
 block_size = 100 # context of up to 256 previous characters
 
 # baby GPT model :)

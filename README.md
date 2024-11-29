@@ -6,6 +6,10 @@ An implementation of Karpathy's excellent [nanoGPT](https://github.com/karpathy/
 
     pip install wandb jax numpy equinox optax tqdm tiktoken
 
+# notable differences with the nanoGPT version
+
+`out_dir` is replaced with `out_path` which allows avoids hardcoding the model name saved and loaded.
+
 # roadmap
 
 - [ ] Compare speed to nanoGPT in torch

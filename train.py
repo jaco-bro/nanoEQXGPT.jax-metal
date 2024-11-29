@@ -1,3 +1,4 @@
+import datetime
 import json
 import pickle
 import time
@@ -14,7 +15,7 @@ from model import GPTConfig, GPT
 # -----------------------------------------------------------------------------
 # default config values designed to train a gpt2 (124M) on OpenWebText
 # I/O
-out_dir = "out"
+out_path = "out/model.eqx"
 eval_interval = 2000
 log_interval = 1
 eval_iters = 50
@@ -73,7 +74,7 @@ config = {k: globals()[k] for k in config_keys}  # will be useful for logging
 # -----------------------------------------------------------------------------
 # TODO Implement multi device training.
 
-os.makedirs(out_dir, exist_ok=True)
+os.makedirs(os.path.dirname(out_path), exist_ok=True)
 print("✅ Output dir created !")
 
 # os.environ["XLA_FLAGS"] = "--xla_gpu_enable_tf32=true"
@@ -164,7 +165,7 @@ if init_from == "scratch":
     model = eqx.nn.inference_mode(model, False)
 
 if init_from == "resume":
-    print(f"Resuming training from {out_dir}")
+    print(f"Resuming training from {out_path}")
 
     def load(filename):
         with open(filename, "rb") as f:
@@ -177,13 +178,13 @@ if init_from == "resume":
                 checkpoint_params,
             )
 
-    model, checkpoint = load(os.path.join(out_dir, "model.eqx"))
+    model, checkpoint = load(out_path)
     for k in ["n_layer", "n_head", "n_embd", "block_size", "bias", "vocab_size"]:
         model_args[k] = checkpoint["model_args"][k]
 
-    model = eqx.nn.inference_mode(model)
-    iter_num = checkpoint["iter_num"]
-    best_val_loss = checkpoint["best_val_loss"]
+    model = eqx.nn.inference_mode(model, False)
+    # iter_num = checkpoint["iter_num"]
+    # best_val_loss = checkpoint["best_val_loss"]
 
 print("✅ Model initialized !")
 
@@ -242,14 +243,14 @@ if wandb_log:
 
 if tensorboard_log:
     from tensorboardX import SummaryWriter
-    writer = SummaryWriter('runs/' + log_run_name)
-    
+    writer = SummaryWriter(log_dir='./runs/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+
 print("👀 Starting run !")
 
 x, y = get_batch("train")
 t0 = time.time()
 running_mfu = -1.0
-for local_iter_num in range(iter_num, max_iters):
+for local_iter_num in range(iter_num, max_iters+1):
     # TODO: Chec`k if this is async prefetching the next batch.
     # do a training step
     if local_iter_num % eval_interval == 0:
@@ -274,11 +275,11 @@ for local_iter_num in range(iter_num, max_iters):
             hyperparameters = {
                 # "optimizer": optimizer,
                 "model_args": model_args,
-                "iter_num": iter_num,
+                # "iter_num": iter_num,
                 # "best_val_loss": best_val_loss,
                "config": config,
             }
-            print(f"saving checkpoint to {out_dir}")
+            print(f"saving checkpoint to {out_path}")
 
             def save(filename, hyperparams, model):
                 with open(filename, "wb") as f:
@@ -286,7 +287,7 @@ for local_iter_num in range(iter_num, max_iters):
                     f.write((hyperparam_str + "\n").encode())
                     eqx.tree_serialise_leaves(f, model)
 
-            save(os.path.join(out_dir, "model.eqx"), hyperparameters, model)
+            save(out_path, hyperparameters, model)
 
     if local_iter_num == 0 and eval_only:
         break
@@ -321,6 +322,7 @@ for local_iter_num in range(iter_num, max_iters):
     t1 = time.time()
     dt = t1 - t0
     t0 = t1
+    
     if local_iter_num % log_interval == 0:
         total_loss = total_loss * gradient_accumulation_steps
         if local_iter_num > 1000:
