@@ -258,12 +258,8 @@ for local_iter_num in range(iter_num, max_iters+1):
         if wandb_log:
             wandb.log(  # type: ignore
                 {
-                    "iter": local_iter_num,
-                    "train/loss": losses["train"],
-                    "eval/loss": losses["eval"],
-                    # "lr": ls,  # Check
-                    # "mfu": running_mfu * 100,
-                }
+                    "eval/loss": losses["val"],
+                }, step=local_iter_num
             )            
         if losses["val"] < best_val_loss or always_save_checkpoint:
             # There has to be an easier way to get the count from the hyperparameters...
@@ -298,7 +294,12 @@ for local_iter_num in range(iter_num, max_iters+1):
     key, k = jax.random.split(key)
     x, y = get_batch("train")
     loss, grads = eqx.filter_value_and_grad(compute_loss)(model, x, y, k)
-
+    if wandb_log:
+        wandb.log(  # type: ignore
+            {
+                "train/loss": loss,
+            }, step=local_iter_num
+        )   
     # print(loss)
     # total_loss += loss / gradient_accumulation_steps
     # if accumulated_grads == None:

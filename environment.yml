@@ -1,0 +1,13 @@
+name: gpt
+dependencies:
+  - python=3.10
+  - pip=24.2
+  - pip:
+    - equinox
+    - tiktoken
+    - numpy
+    - tqdm
+    - datasets
+    - wandb
+    - tensorboardX
+    - optax

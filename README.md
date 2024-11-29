@@ -4,11 +4,20 @@ An implementation of Karpathy's excellent [nanoGPT](https://github.com/karpathy/
 
 # install
 
-    pip install wandb jax numpy equinox optax tqdm tiktoken
+    `conda env create -f environment.yml`
+    `conda activate gpt`
+    `pip install jax` or `pip install `jax["cuda"]` depending on if you are running CPU or GPU under the hood.
 
 # notable differences with the nanoGPT version
 
+### datasets
+
+[Tinystories](https://arxiv.org/abs/2305.07759) is added 
+
+### config
+
 `out_dir` is replaced with `out_path` which allows avoids hardcoding the model name saved and loaded.
+`tensorboard_log` is available and `wandb_project` and `wandb_run_name` are changed to `log_project` and `log_run_name` respectively.
 
 # roadmap
 
