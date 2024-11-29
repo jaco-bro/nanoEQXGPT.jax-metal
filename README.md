@@ -18,3 +18,5 @@ An implementation of Karpathy's excellent [nanoGPT](https://github.com/karpathy/
 - [ ] profile code to avoid wasted time (mfu goes brr)
 - [ ] microbatching in JAX -> does it even make sense 
 - [ ] loading the optax state from the correct position# nanoEQXGPT
+- [ ] convert to bfloat32 possible
+- [ ] Check if this is useful: os.environ["XLA_FLAGS"] = "--xla_gpu_enable_tf32=true" 

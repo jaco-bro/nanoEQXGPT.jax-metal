@@ -60,6 +60,7 @@ dtype = (
     # else "float16"
     # 'float32', 'bfloat16', or 'float16', the latter will auto implement a GradScaler
 )
+seed = 1
 # -----------------------------------------------------------------------------
 config_keys = [
     k
@@ -74,7 +75,6 @@ config = {k: globals()[k] for k in config_keys}  # will be useful for logging
 os.makedirs(out_dir, exist_ok=True)
 print("✅ Output dir created !")
 
-key = jax.random.key(0)
 os.environ["XLA_FLAGS"] = "--xla_gpu_enable_tf32=true"
 ptdtype = {"float32": jnp.float32, "bfloat16": jnp.bfloat16, "float16": jnp.float16}[
     dtype
@@ -118,9 +118,7 @@ def convert_model_to_dtype(model, dtype: str):
         model = convert_pytree_to_dtype(model, jnp.float32)
 
 
-# init these up here, can override if init_from='resume' (i.e. from a checkpoint)
-iter_num = 0
-best_val_loss = 1e9
+
 # attempt to derive vocab_size from the dataset
 meta_path = os.path.join(data_dir, "meta.pkl")
 meta_vocab_size = None
@@ -146,7 +144,10 @@ model_args = dict(
 #     model.crop_block_size(block_size)
 #     model_args['block_size'] = block_size # so that the checkpoint will have the right value
 # model.to(device)
-
+# init these up here, can override if init_from='resume' (i.e. from a checkpoint)
+iter_num = 0
+best_val_loss = 1e9
+key = jax.random.key(seed)
 
 if init_from == "scratch":
     # init a new model from scratch
@@ -158,7 +159,7 @@ if init_from == "scratch":
         )
     model_args["vocab_size"] = meta_vocab_size if meta_vocab_size is not None else 50304
     gptconf = GPTConfig(**model_args)
-    model = GPT.create_instance(gptconf, key=key)
+    model = GPT(gptconf, key=key) # TODO Serious issue with weight initialization...
     model = eqx.nn.inference_mode(model, False)
 
 if init_from == "resume":
@@ -194,10 +195,10 @@ lr_scheduler = optax.warmup_cosine_decay_schedule(
 )
 
 optimizer = optax.inject_hyperparams(optax.adamw)(
-    learning_rate=learning_rate, b1=beta1, b2=beta2
-)
-if grad_clip != 0.0:
-    optimizer = optax.chain(optax.adaptive_grad_clip(grad_clip), optimizer)
+    learning_rate=learning_rate
+) # TOODO BETA AND LR SCHED
+# if grad_clip != 0.0:
+#     optimizer = optax.chain(optax.adaptive_grad_clip(grad_clip), optimizer)
 
 print("✅ Optimizer initialized !")
 
@@ -227,10 +228,10 @@ def estimate_loss(model):
             )
             losses = losses.at[k].set(loss.item())
         out[split] = jnp.mean(losses)
+    model = eqx.nn.inference_mode(model, False)
     return out
 
 
-# The power of equinox !
 optimizer_state = optimizer.init(eqx.filter(model, eqx.is_array))
 
 # logging
@@ -243,11 +244,11 @@ print("👀 Starting run !")
 
 
 # Fetch very first batch
-x, y = get_batch("train")
+# x, y = get_batch("train")
 t0 = time.time()
 running_mfu = -1.0
 for local_iter_num in range(iter_num, max_iters):
-    # TODO: Check if this is async prefetching the next batch.
+    # TODO: Chec`k if this is async prefetching the next batch.
     # do a training step
     if local_iter_num % eval_interval == 0:
         losses = estimate_loss(model)
@@ -258,7 +259,7 @@ for local_iter_num in range(iter_num, max_iters):
                     "train/loss": losses["train"],
                     "eval/loss": losses["eval"],
                     # "lr": ls,  # Check
-                    "mfu": running_mfu * 100,
+                    # "mfu": running_mfu * 100,
                 }
             )
         if losses["val"] < best_val_loss or always_save_checkpoint:
@@ -273,7 +274,7 @@ for local_iter_num in range(iter_num, max_iters):
                 "model_args": model_args,
                 "iter_num": iter_num,
                 # "best_val_loss": best_val_loss,
-                "config": config,
+               "config": config,
             }
             print(f"saving checkpoint to {out_dir}")
 
@@ -287,13 +288,13 @@ for local_iter_num in range(iter_num, max_iters):
 
     if local_iter_num == 0 and eval_only:
         break
-
+    
     accumulated_grads = None
     total_loss = 0
     # for micro_step in range(gradient_accumulation_steps):
     key, k = jax.random.split(key)
-    loss, grads = eqx.filter_value_and_grad(compute_loss)(model, x, y, k)
     x, y = get_batch("train")
+    loss, grads = eqx.filter_value_and_grad(compute_loss)(model, x, y, k)
 
     # print(loss)
     # total_loss += loss / gradient_accumulation_steps
@@ -307,8 +308,7 @@ for local_iter_num in range(iter_num, max_iters):
     #     lambda g: g / gradient_accumulation_steps, accumulated_grads
     # )
     updates, optimizer_state = optimizer.update(
-        grads, optimizer_state, eqx.filter(model, eqx.is_array)
-    )
+        grads, optimizer_state, model)
 
     model = eqx.apply_updates(model, updates)
     # TODO: micro batching, gradient accumulation... prob sum the trees
@@ -321,7 +321,7 @@ for local_iter_num in range(iter_num, max_iters):
     t0 = t1
     if local_iter_num % log_interval == 0:
         total_loss = total_loss * gradient_accumulation_steps
-        if local_iter_num > 5:
+        if local_iter_num > 1000:
             mfu = model.estimate_mfu(batch_size * gradient_accumulation_steps, dt)
             running_mfu = mfu if running_mfu == -1.0 else 0.9 * running_mfu + 0.1 * mfu
         print(

@@ -11,13 +11,13 @@ import jax
 
 @dataclass
 class GPTConfig:
-    block_size: int = 1024
+    block_size: int = 100
     vocab_size: int = (
         50304  # GPT-2 vocab_size of 50257, padded up to nearest multiple of 64 for efficiency
     )
     n_layer: int = 12
     n_head: int = 12
-    n_embd: int = 768
+    n_embd: int = 512
     dropout: float = 0.0
     bias: bool = (
         True  # True: bias in Linears and LayerNorms, like GPT-2. False: a bit better and faster
@@ -80,6 +80,7 @@ class CausalSelfAttention(eqx.Module):
         k1, k2 = (None, None) if key is None else jax.random.split(key)
         kq = self.attn_dropout(kq, key=k1)
         outs = jnp.matmul(kq, v)
+        outs = jax.vmap(self.c_proj)(outs)
 
         # Add residual dropout
         outs = self.resid_dropout(outs, key=k2)
@@ -133,8 +134,9 @@ class Block(eqx.Module):
 
 class GPT(eqx.Module):
     layers: list
-    wte_and_lmhead: eqx.nn.Shared
+    lm_head: nn.Linear
     wpe: nn.Embedding
+    wte: nn.Embedding
     drop: nn.Dropout
     ln_f: nn.LayerNorm
 
@@ -154,24 +156,23 @@ class GPT(eqx.Module):
 
         # Use weight typing
 
-        wte = nn.Embedding(config.vocab_size, config.n_embd, key=key1)
-        lm_head = nn.Linear(config.n_embd, config.vocab_size, use_bias=False, key=key4)
-        where = lambda embed_and_lin: embed_and_lin[1].weight
-        get = lambda embed_and_lin: embed_and_lin[0].weight
-        self.wte_and_lmhead = eqx.nn.Shared((wte, lm_head), where, get)
+        self.wte = nn.Embedding(config.vocab_size, config.n_embd, key=key1)
+        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, use_bias=False, key=key4)
+
+        # where = lambda embed_and_lin: embed_and_lin[1].weight
+        # get = lambda embed_and_lin: embed_and_lin[0].weight
+        # self.wte_and_lmhead = eqx.nn.Shared((wte, lm_head), where, get)
 
     @eqx.filter_jit
     def __call__(
-        self, x, train_mode=False, key=None
+        self, x, train_mode=True, key=None
     ):  # We don't assert seq length as jax needs static shapes. Check elsewhere.
         (t,) = x.shape
 
         # Should use better positional embeddings with cos and sin.
         pos = jnp.arange(0, t)
         # pos = jnp.arange(0, self.config.block_size)
-        wte, lm_head = self.wte_and_lmhead()
-
-        tok_emb = jax.vmap(wte)(x)
+        tok_emb = jax.vmap(self.wte)(x)
         pos_emb = jax.vmap(self.wpe)(pos)
         x = tok_emb + pos_emb
 
@@ -183,9 +184,9 @@ class GPT(eqx.Module):
         x = jax.vmap(self.ln_f)(x)
 
         if train_mode:
-            return jax.vmap(lm_head)(x)
+            return jax.vmap(self.lm_head)(x)
         else:
-            return jax.vmap(lm_head)(
+            return jax.vmap(self.lm_head)(
                 x[[-1], :]
             )  # note: using list [-1] to preserve the time dim
 
@@ -293,6 +294,7 @@ class GPT(eqx.Module):
         the sequence max_new_tokens times, feeding the predictions back into the model each time.
         """
         for _ in range(max_new_tokens):
+            print(idx)
             # if the sequence context is growing too long we must crop it at block_size
             idx_cond = (
                 idx
