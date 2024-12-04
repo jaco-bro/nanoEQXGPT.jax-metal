@@ -63,7 +63,7 @@ dtype = (
     # 'float32', 'bfloat16', or 'float16', the latter will auto implement a GradScaler
 )
 seed = 1
-meta_vocab_size = 512
+meta_vocab_size = None
 # -----------------------------------------------------------------------------
 config_keys = [
     k
