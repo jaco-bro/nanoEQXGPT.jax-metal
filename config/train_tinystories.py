@@ -11,7 +11,7 @@ always_save_checkpoint = False
 
 wandb_log = True # override via command line if you like
 tensorboard_log = False # override via command line if you like
-log_project = "exp4"
+log_project = "exp5"
 log_run_name = "standard"  # 'run' + str(time.time())
 
 dataset = 'tinystories'
