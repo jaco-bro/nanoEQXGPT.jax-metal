@@ -19,9 +19,9 @@ An implementation of Karpathy's excellent [nanoGPT](https://github.com/karpathy/
 `out_dir` is replaced with `out_path` which allows avoids hardcoding the model name saved and loaded.
 `tensorboard_log` is available and `wandb_project` and `wandb_run_name` are changed to `log_project` and `log_run_name` respectively.
 
-# roadmap
+## Roadmap 🚎
 
-- [ ] Compare speed to nanoGPT in torch
+- [x] Compare speed to nanoGPT in torch
 - [ ] provide checkpoints for people to test.
 - [ ] fix download datasets issuse
 - [ ] fix scaling in the train
@@ -33,3 +33,16 @@ An implementation of Karpathy's excellent [nanoGPT](https://github.com/karpathy/
 - [ ] loading the optax state from the correct position# nanoEQXGPT
 - [ ] convert to bfloat32 possible
 - [ ] Check if this is useful: os.environ["XLA_FLAGS"] = "--xla_gpu_enable_tf32=true" 
+
+## Getting started
+
+```bash
+git clone git@github.com:TugdualKerjan/nanoEQXGPT.git
+uv sync
+uv run data/shakespear_char/prepare.py
+uv run train.py
+```
+
+## Speed 
+
+It seems like kaparthy has spent more time than me on optimization because the model here is about x10 slower that the PyTorch version lol (Around 300ms vs 30ms) for the shakespear_char dataset.

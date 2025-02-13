@@ -20,7 +20,7 @@ eval_interval = 2000
 log_interval = 1
 eval_iters = 50
 eval_only = False  # if True, script exits right after the first eval
-always_save_checkpoint = True  # if True, always save a checkpoint after each eval
+always_save_checkpoint = False  # if True, always save a checkpoint after each eval
 init_from = "scratch"  # 'scratch' or 'resume' or 'gpt2*'
 # wandb logging
 wandb_log = False  # disabled by default
@@ -28,7 +28,7 @@ tensorboard_log = True  # disabled by default
 log_project = "exp1"
 log_run_name = "gpt2"  # 'run' + str(time.time())
 # data
-dataset = "tinystories"
+dataset = "shakespeare_char"
 gradient_accumulation_steps = 1  # used to simulate larger batch sizes
 batch_size = 8  # if gradient_accumulation_steps > 1, this is the micro-batch size
 block_size = 1024
@@ -93,7 +93,7 @@ def get_batch(split: str):
         data = np.memmap(os.path.join(data_dir, "train.bin"), dtype=np.uint16, mode="r")
     else:
         data = np.memmap(
-            os.path.join(data_dir, "validation.bin"), dtype=np.uint16, mode="r"
+            os.path.join(data_dir, "val.bin"), dtype=np.uint16, mode="r"
         )
 
     ix = np.random.randint(len(data) - block_size, size=(batch_size,))
