@@ -2,12 +2,6 @@
 
 An implementation of Karpathy's excellent [nanoGPT](https://github.com/karpathy/nanoGPT/tree/master). The goal here is to reproduce the same GPT2 model in Equinox, a neural network library written on top of JAX. JAX allows us to use OpenXLA more effectively compared to Torch, so we should be more efficient hardware wise. We now want to make efficiency comparisons.
 
-# install
-
-    `conda env create -f environment.yml`
-    `conda activate gpt`
-    `pip install jax` or `pip install `jax["cuda"]` depending on if you are running CPU or GPU under the hood.
-
 # notable differences with the nanoGPT version
 
 ### datasets
