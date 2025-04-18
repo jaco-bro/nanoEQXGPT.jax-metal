@@ -34,5 +34,5 @@ beta2 = 0.99 # make a bit bigger because number of tokens per iter is small
 warmup_iters = 100 # not super necessary potentially
 
 # on macbook also add
-# device = 'cpu'  # run on cpu only
+# device = 'cpu'  # run on cpu only -> now 'mps' works too
 # compile = False # do not torch compile the model

@@ -1,42 +1,29 @@
-# nanoEQXGPT
+# nanoEQXGPT.jax-metal
 
-An implementation of Karpathy's excellent [nanoGPT](https://github.com/karpathy/nanoGPT/tree/master). The goal here is to reproduce the same GPT2 model in Equinox, a neural network library written on top of JAX. JAX allows us to use OpenXLA more effectively compared to Torch, so we should be more efficient hardware wise. We now want to make efficiency comparisons.
+This is a fork of [TugdualKerjan's nanoEQXGPT](https://github.com/TugdualKerjan/nanoEQXGPT), which is an implementation of Karpathy's excellent [nanoGPT](https://github.com/karpathy/nanoGPT/tree/master) in Equinox/JAX. 
 
-# notable differences with the nanoGPT version
+## Changes in This Fork
 
-### datasets
+I've created this fork to make the project run on my M1 macbook. The modifications I made to the original repo were minimal and include:
 
-[Tinystories](https://arxiv.org/abs/2305.07759) is added 
+- Replacing the `pyproject.toml` and `uv.lock` files with a `requirements.txt` file that includes [JAX-metal v0.1.0, jaxlib >=v0.4.26](https://developer.apple.com/metal/jax/), and [jax v0.5.0](https://github.com/jax-ml/jax/issues/27062#issuecomment-2726913181) because the original uv.lock contained dependencies not compatible with jax-metal.
+- Replacing 'cuda' with 'mps' where applicable (`grep cuda *`)
+- Replacing `jax.lax.top_k` (fails on jax-metal) with an ad-hoc workaround
 
-### config
-
-`out_dir` is replaced with `out_path` which allows avoids hardcoding the model name saved and loaded.
-`tensorboard_log` is available and `wandb_project` and `wandb_run_name` are changed to `log_project` and `log_run_name` respectively.
-
-## Roadmap 🚎
-
-- [x] Compare speed to nanoGPT in torch
-- [ ] provide checkpoints for people to test.
-- [ ] fix download datasets issuse
-- [ ] fix scaling in the train
-- [ ] implement multidevice train
-- [ ] mixed precision
-- [ ] model surgery if it's greater than block_size
-- [ ] profile code to avoid wasted time (mfu goes brr)
-- [ ] microbatching in JAX -> does it even make sense 
-- [ ] loading the optax state from the correct position# nanoEQXGPT
-- [ ] convert to bfloat32 possible
-- [ ] Check if this is useful: os.environ["XLA_FLAGS"] = "--xla_gpu_enable_tf32=true" 
-
-## Getting started
+## Getting Started
 
 ```bash
-git clone git@github.com:TugdualKerjan/nanoEQXGPT.git
-uv sync
-uv run data/shakespear_char/prepare.py
-uv run train.py
+git clone https://github.com/jaco-bro/nanoEQXGPT.jax-metal
+cd nanoEQXGPT.jax-metal
+# conda create -n jax python=3.12.8 -y
+# pip install -U pip
+# pip install numpy wheel
+# pip install jax-metal==0.1.0
+pip install -r requirements.txt
+python data/shakespeare_char/prepare.py
+python train.py
+python sample.py
 ```
+## Original Description
 
-## Speed 
-
-It seems like kaparthy has spent more time than me on optimization because the model here is about x10 slower that the PyTorch version lol (Around 300ms vs 30ms) for the shakespear_char dataset.
+An implementation of Karpathy's excellent [nanoGPT](https://github.com/karpathy/nanoGPT/tree/master). The goal here is to reproduce the same GPT2 model in Equinox, a neural network library written on top of JAX. JAX allows us to use OpenXLA more effectively compared to Torch, so we should be more efficient hardware wise. We now want to make efficiency comparisons.

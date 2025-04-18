@@ -307,7 +307,7 @@ class GPT(eqx.Module):
             logits = logits / temperature
             # optionally crop the logits to only the top k options
             if top_k is not None:
-                v, _ = jax.lax.top_k(logits, min(top_k, logits.size(-1)))
+                v, _ = jax.lax.top_k(logits, min(top_k, logits.size(-1))) # -> yeah.. this won't work with jax-metal
                 logits[logits < v[:, [-1]]] = -float("Inf")
             # apply softmax to convert logits to (normalized) probabilities
             key, k = jax.random.split(key)

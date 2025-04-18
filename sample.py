@@ -11,7 +11,7 @@ from model import GPTConfig, GPT
 init_from = (
     "resume"  # either 'resume' (from an out_dir) or a gpt2 variant (e.g. 'gpt2-xl')
 )
-out_path = "out-tinystories/model.eqx"  # ignored if init_from is not 'resume'
+out_path = "out/model.eqx"  # ignored if init_from is not 'resume'
 start = "Once upon"  # or "<|endoftext|>" or etc. Can also specify a file, use as: "FILE:prompt.txt"
 num_samples = 1  # number of samples to draw
 max_new_tokens = 6  # number of tokens generated in each sample
@@ -22,7 +22,7 @@ top_k = (
     1  # retain only the top_k most likely tokens, clamp others to have 0 probability
 )
 seed = 1337
-device = "cuda"  # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc.
+device = "mps"  # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc.
 dtype = "bfloat16"  # 'float32' or 'bfloat16' or 'float16'
 compile = False  # use PyTorch 2.0 to compile the model to be faster
 exec(open("configurator.py").read())  # overrides from command line or config file
@@ -84,8 +84,11 @@ for _ in range(max_new_tokens):
     logits = logits[:, :, :] / temperature
     # optionally crop the logits to only the top k options
     if top_k is not None:
-        v, _ = jax.lax.top_k(logits, min(top_k, logits.shape[-1]))
-        logits = jnp.where(jnp.less(logits, v[:, :, -1:]), -jnp.inf, logits) 
+        # v, _ = jax.lax.top_k(logits, min(top_k, logits.shape[-1])) # -> doesn't work on my mac and I'm a noob:
+        sorted_logits = jnp.sort(logits, axis=-1)
+        sorted_logits = jnp.flip(sorted_logits, axis=-1)
+        kth_values = sorted_logits[:, :, top_k-1:top_k]
+        logits = jnp.where(jnp.less(logits, kth_values), -jnp.inf, logits)
     # apply softmax to convert logits to (normalized) probabilities
     key, k = jax.random.split(key)
     idx_next = jax.random.categorical(k, logits)
@@ -94,3 +97,7 @@ for _ in range(max_new_tokens):
     # append sampled index to the running sequence and continue
     idx = jnp.concat((idx, idx_next), axis=-1)
     print(idx)
+
+    # Decode and print the generated text
+    generated_text = decode(idx[0].tolist())
+    print(f"Generated text: '{generated_text}'")

@@ -6,3 +6,4 @@ data/tinystories/**
 runs/*
 wandb/*
 **.bin
+.DS_Store
