@@ -84,11 +84,8 @@ for _ in range(max_new_tokens):
     logits = logits[:, :, :] / temperature
     # optionally crop the logits to only the top k options
     if top_k is not None:
-        # v, _ = jax.lax.top_k(logits, min(top_k, logits.shape[-1])) # -> doesn't work on my mac and I'm a noob:
-        sorted_logits = jnp.sort(logits, axis=-1)
-        sorted_logits = jnp.flip(sorted_logits, axis=-1)
-        kth_values = sorted_logits[:, :, top_k-1:top_k]
-        logits = jnp.where(jnp.less(logits, kth_values), -jnp.inf, logits)
+        v, _ = jax.lax.top_k(logits, min(top_k, logits.shape[-1]))
+        logits = jnp.where(jnp.less(logits, v[:, :, -1:]), -jnp.inf, logits) 
     # apply softmax to convert logits to (normalized) probabilities
     key, k = jax.random.split(key)
     idx_next = jax.random.categorical(k, logits)
